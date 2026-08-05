@@ -1,12 +1,10 @@
-const { 
-    Client, 
-    GatewayIntentBits, 
-    ActionRowBuilder, 
-    ButtonBuilder, 
-    ButtonStyle,
-    ModalBuilder,
+const {
+    Client,
+    GatewayIntentBits,
+    ActionRowBuilder,
+    ButtonBuilder,
     TextInputBuilder,
-    TextInputStyle,
+    TextStyle,
     ChannelType,
     PermissionFlagsBits,
     EmbedBuilder
@@ -22,133 +20,93 @@ const client = new Client({
 });
 
 client.once('ready', () => {
-    console.log(`✅ البوت شغال وجاهز! الحساب: ${client.user.tag}`);
+    console.log(`تم تسجيل الدخول بنجاح باسم ${client.user.tag}`);
 });
 
-// 📌 1. أمر إرسال لوحة الراديو
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
 
     if (message.content === '!setup-radio') {
         const embed = new EmbedBuilder()
-            .setTitle('📻 | روم الراديو')
-            .setDescription(
-                'من خلال روم الراديو تقدر تسوي موجة خاصة فيك بكل سهولة وتعطي رقمها لأي شخص تبيه يدخل معك بنفس الموجة وتكون المحادثة خاصة بينكم فقط وما يقدر أي شخص تشوفها أو يدخلها إلا إذا كان معه رقم الموجة. ويعتبر استخدام الراديو رول بلاي لذلك لازم يكون استخدامه بشكل واقعي ومتوافق مع قوانين السيرفر.\n\n' +
-                '**الشروط:**\n' +
-                '• يمنع استخدام الموجات من 1 إلى 10 لأنها مخصصة للإدارة والجهات الرسمية.\n' +
-                '• الراديو يعتبر رول بلاي وأي استخدام غير واقعي يعرضك للمخالفة.\n' +
-                '• يمنع الكتابة داخل الموجات ويجب الاعتماد على التحدث الصوتي فقط.\n' +
-                '• يمنع استخدام الموجات للتنسيق على أمور مخالفة للقوانين.\n' +
-                '• الالتزام بجميع قوانين السيرفر أثناء استخدام الراديو.'
-            )
-            .setColor('#101010');
+            .setTitle('راديو المدينة')
+            .setDescription('اضغط على الرابط أسفله للربط بالراديو الخاص بك.');
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId('open_radio_modal')
-                .setLabel('📻 الاتصال بالموجة')
-                .setStyle(ButtonStyle.Primary)
+                .setLabel('ربط الراديو')
+                .setStyle(1)
         );
 
         await message.channel.send({ embeds: [embed], components: [row] });
     }
 });
 
-// 📌 2. معالجة الضغط على الزر وإدخال رقم الموجة
 client.on('interactionCreate', async (interaction) => {
-
-    // فتح النافذة (Modal)
     if (interaction.isButton() && interaction.customId === 'open_radio_modal') {
-        const modal = new ModalBuilder()
-            .setCustomId('radio_modal_submit')
-            .setTitle('رقم الموجة');
-
-        const waveInput = new TextInputBuilder()
-            .setCustomId('wave_pass_input')
-            .setLabel('أدخل رقم الموجة... مثال : 71.23')
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder('71.23')
-            .setRequired(true)
-            .setMaxLength(10);
-
-        const actionRow = new ActionRowBuilder().addComponents(waveInput);
-        modal.addComponents(actionRow);
+        const modal = {
+            title: 'إعدادات الراديو',
+            customId: 'radio_modal_submit',
+            components: [
+                {
+                    type: 1,
+                    components: [
+                        {
+                            type: 4,
+                            customId: 'wave_pass_input',
+                            label: 'التردد (مثال: 71.23)',
+                            style: 1,
+                            required: true
+                        }
+                    ]
+                }
+            ]
+        };
 
         await interaction.showModal(modal);
-        return;
     }
 
-    // معالجة إدخال رقم الموجة والربط بها
     if (interaction.isModalSubmit() && interaction.customId === 'radio_modal_submit') {
-        const waveNumber = interaction.fields.getTextInputValue('wave_pass_input').trim();
-        const guild = interaction.guild;
-        const member = interaction.member;
+        const wavePass = interaction.fields.getTextInputValue('wave_pass_input');
 
-        // التأكد أن العضو داخل روم صوتي
-        if (!member.voice.channel) {
+        if (!interaction.member.voice.channel) {
             return interaction.reply({
-                content: '❌ يجب أن تكون متواجدًا في أي روم صوتي أولاً للاتصال بالراديو!',
+                content: 'يجب أن تكون متواجداً في أي روم صوتي أولاً لربط الراديو!',
                 ephemeral: true
             });
         }
 
         await interaction.deferReply({ ephemeral: true });
 
-        // اسم الروم المخفي في الكواليس
-        const channelName = `موجة-${waveNumber}`;
-
         try {
-            // البحث عما إذا كانت الموجة أنشئت مسبقاً من شخص آخر
-            let targetChannel = guild.channels.cache.find(
-                c => c.name === channelName && c.type === ChannelType.GuildVoice
+            const targetChannel = interaction.guild.channels.cache.find(
+                (c) => c.name === `راديو | ${wavePass}` && c.type === ChannelType.GuildVoice
             );
 
-            if (!targetChannel) {
-                // إذا لم تكن موجودة، ينشئ البوت الروم مخفي عن الجميع
-                targetChannel = await guild.channels.create({
-                    name: channelName,
-                    type: ChannelType.GuildVoice,
-                    parent: member.voice.channel.parentId || null,
-                    permissionOverwrites: [
-                        {
-                            id: guild.roles.everyone.id,
-                            deny: [PermissionFlagsBits.ViewChannel] // مخفية عن الجميع
-                        },
-                        {
-                            id: member.id,
-                            allow: [
-                                PermissionFlagsBits.ViewChannel,
-                                PermissionFlagsBits.Connect,
-                                PermissionFlagsBits.Speak
-                            ]
-                        }
-                    ]
-                });
-            } else {
-                // إذا كانت الموجة موجودة مسبقاً، يعطي الشخص الجديد صلاحية دخولها
-                await targetChannel.permissionOverwrites.edit(member.id, {
+            if (targetChannel) {
+                await targetChannel.permissionOverwrites.edit(interaction.member.id, {
                     ViewChannel: true,
                     Connect: true,
                     Speak: true
                 });
+
+                await interaction.member.voice.setChannel(targetChannel);
+
+                await interaction.editReply({
+                    content: `تم إعطاؤك الصلاحية وتم نقلك إلى الراديو رقم ${wavePass}`
+                });
+            } else {
+                await interaction.editReply({
+                    content: 'صوت التردد غير موجود، تأكد من إدخال اسم الراديو الصحيح.'
+                });
             }
-
-            // نقل العضو إلى روم الموجة
-            await member.voice.setChannel(targetChannel);
-
-            // إرسال نفس الرسالة التأكيدية
-            await interaction.editReply({
-                content: `تم إنشاء موجة **${waveNumber}** ونقلك إليها! القناة خاصة — شارك الرقم فقط مع من تريد.`
-            });
-
         } catch (error) {
             console.error(error);
             await interaction.editReply({
-                content: '❌ حدث خطأ! تأكد من إعطاء البوت صلاحيات إدارة القنوات (Manage Channels) ونقل الأعضاء (Move Members).'
+                content: 'حدث خطأ أثناء إجراء العملية، تأكد من إعطاء البوت صلاحيات إدارة الرومات.'
             });
         }
     }
 });
 
-// ضع توكين البوت الخاص بك هنا
-client.login('MTUzNDQ1MTY4NjIyNjI2NDA4NA.G167wn.PrGk46b5vFeZU7i4-d4-4t8JMsFqNxdWIdNiHk');
+client.login('MTUzNDQ1MTY4NjIyNjI2NDA4NA.G8Ngje.FP5vIkyh93fsTELfksFFLaWMwj0dVGgAFbtGnw');
