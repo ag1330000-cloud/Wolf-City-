@@ -151,4 +151,4 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 // ضع توكين البوت الخاص بك هنا
-client.login('MTUzNDQ1MTY4NjIyNjI2NDA4NA.Gvy-oE.5TEoZW4U3ldA03tMF9H_vZ2jez7dgX8AWlQ1qQ');
+client.login('MTUzNDQ1MTY4NjIyNjI2NDA4NA.GhXmyX.jmdNK9HVFjzhtna8nk2VSKNAu4O3C8bPDnK8lA');
